@@ -3,6 +3,7 @@ package handlers
 import (
     "log"
     "net/http"
+    "strings"
 
     "github.com/gin-gonic/gin"
     "github.com/google/uuid"
@@ -28,7 +29,22 @@ func NewWebSocketHandler(hub *wshub.Hub, authSvc *auth.AuthService) *WebSocketHa
 }
 
 func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
-    token := c.Query("token")
+        log.Printf("WebSocket request - Query token: %v, Header token: %v", 
+        c.Query("token") != "", 
+        c.GetHeader("Sec-WebSocket-Protocol") != "")
+    token := c.GetHeader("Sec-WebSocket-Protocol")
+    if token == "" {
+        token = c.Query("token")
+        if token != "" {
+            log.Printf("WARNING: Token passed via query parameter for user connection")
+        }
+    }
+    log.Printf("Raw token: %s", token) // Посмотрим что приходит
+
+    // Убираем префикс "Bearer " если есть
+    token = strings.TrimPrefix(token, "Bearer ")
+    log.Printf("Token after trim: %s", token[:20]+"...") // Первые 20 символов
+    
     if token == "" {
         c.AbortWithStatus(http.StatusUnauthorized)
         return
@@ -36,6 +52,13 @@ func (h *WebSocketHandler) HandleWebSocket(c *gin.Context) {
 
     claims, err := h.auth.ValidateToken(token)
     if err != nil {
+         log.Printf("ERROR: Token validation failed: %v", err) // ВАЖНО! Увидим причину
+        c.AbortWithStatus(http.StatusUnauthorized)
+        return
+    }
+    
+    // Проверяем что это access токен
+    if claims.TokenType != "access" {
         c.AbortWithStatus(http.StatusUnauthorized)
         return
     }

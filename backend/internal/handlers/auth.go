@@ -132,3 +132,53 @@ func (h *AuthHandler) UpdateMe(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, publicUser(u))
 }
+
+func (h *AuthHandler) Logout(c *gin.Context) {
+    var req struct {
+        RefreshToken string `json:"refreshToken" binding:"required"`
+    }
+    
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    if err := h.auth.Logout(req.RefreshToken); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+func (h *AuthHandler) LogoutAll(c *gin.Context) {
+    userID := c.GetString("userId")
+    
+    if err := h.auth.LogoutAll(userID); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}
+
+type changePasswordRequest struct {
+    OldPassword string `json:"oldPassword" binding:"required"`
+    NewPassword string `json:"newPassword" binding:"required,min=8"`
+}
+
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+    var req changePasswordRequest
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    userID := c.GetString("userId")
+    if err := h.auth.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{"ok": true})
+}

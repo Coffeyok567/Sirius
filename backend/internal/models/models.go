@@ -17,6 +17,7 @@ type User struct {
 	LastSeen            time.Time `json:"lastSeen"`
 	CreatedAt           time.Time `json:"createdAt"`
 	UpdatedAt           time.Time `json:"updatedAt"`
+	TokenVersion int `gorm:"default:0" json:"-"`
 }
 
 type Message struct {
@@ -100,4 +101,13 @@ type Friendship struct {
 	UserID    string    `gorm:"primaryKey;type:varchar(36)" json:"-"`
 	FriendID  string    `gorm:"primaryKey;type:varchar(36)" json:"-"`
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+type RefreshToken struct {
+    ID        string    `gorm:"primaryKey;type:varchar(36)"`
+    UserID    string    `gorm:"index;not null;type:varchar(36)"`
+    Token     string    `gorm:"uniqueIndex;type:text"`
+    ExpiresAt time.Time
+    Revoked   bool      `gorm:"default:false"`
+    CreatedAt time.Time
 }

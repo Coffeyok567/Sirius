@@ -15,7 +15,7 @@ import SettingsWindow from './components/SettingsWindow';
 import GroupChatSettingsWindow from './components/GroupChatSettingsWindow';
 import CallWindow, { CallSessionProps } from './components/CallWindow';
 import GroupCallWindow from './components/GroupCallWindow';
-import { IconSearch, IconSettings, IconFriends, IconUsers } from './components/icons';
+import { IconSearch, IconSettings, IconFriends, IconUsers, IconPhone, IconPhoneHangup } from './components/icons';
 import { AvatarBubble } from './utils/avatar';
 import { applySiriusTheme, readStoredTheme, writeStoredTheme, SiriusTheme } from './utils/theme';
 import {
@@ -25,7 +25,8 @@ import {
   setUserBlocked,
 } from './utils/chatPrefs';
 import { mergeServerClearedAt } from './utils/convClear';
-import { t } from './utils/i18n';
+import { getStoredLang, t } from './utils/i18n';
+import { userError } from './utils/userError';
 import {
   loadStoredPreview,
   previewForWsMessage,
@@ -61,7 +62,7 @@ function convDisplayTitle(c: Conversation, selfId: string): string {
       .filter((p) => p.id !== selfId)
       .map((p) => p.username)
       .join(', ') ||
-    'Chat'
+    t('app.chatFallbackTitle')
   );
 }
 
@@ -75,9 +76,9 @@ function formatSidebarTime(iso?: string): string {
     d.getMonth() === now.getMonth() &&
     d.getFullYear() === now.getFullYear();
   if (sameDay) {
-    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    return d.toLocaleTimeString(getStoredLang() === 'ru' ? 'ru-RU' : 'en-US', { hour: 'numeric', minute: '2-digit' });
   }
-  return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+  return d.toLocaleDateString(getStoredLang() === 'ru' ? 'ru-RU' : 'en-US', { month: 'short', day: 'numeric' });
 }
 
 type IncomingRing = {
@@ -303,8 +304,8 @@ function App() {
       setCurrentUser(user);
       websocketService.connect(accessToken);
       await refreshLists();
-    } catch {
-      setError('Invalid email or password.');
+    } catch (err) {
+      setError(userError(err, 'auth.errInvalidCreds'));
     } finally {
       setBusy(false);
     }
@@ -323,10 +324,9 @@ function App() {
       setMode('login');
       setError(null);
       setPassword('');
-      alert('Account created. Sign in with the same email and password.');
+      alert(t('auth.registerOk'));
     } catch (err: unknown) {
-      const ax = err as { response?: { data?: { error?: string } }; message?: string };
-      setError(ax.response?.data?.error || ax.message || 'Registration failed.');
+      setError(userError(err, 'auth.errRegister'));
     } finally {
       setBusy(false);
     }
@@ -365,8 +365,8 @@ function App() {
       const conv = await messageService.createConversation([other.id], false, '');
       setConversations((prev) => [conv, ...prev]);
       setSelected(conv);
-    } catch {
-      setError('Could not start chat.');
+    } catch (err) {
+      setError(userError(err, 'error.unknown'));
     }
   };
 
@@ -390,7 +390,7 @@ function App() {
   }, [refreshLists]);
 
   const peerDisplayName = useCallback(
-    (userId: string) => users.find((u) => u.id === userId)?.username ?? 'Someone',
+    (userId: string) => users.find((u) => u.id === userId)?.username ?? t('app.someone'),
     [users]
   );
 
@@ -547,7 +547,7 @@ function App() {
               <button
                 type="button"
                 className="sf-icon-tool"
-                title="Friends"
+                title={t('app.friends')}
                 onClick={() => setAddFriendOpen(true)}
               >
                 <IconFriends width={20} height={20} />
@@ -555,7 +555,7 @@ function App() {
               <button
                 type="button"
                 className="sf-icon-tool"
-                title="New group chat"
+                title={t('group.newTitle')}
                 onClick={() => setCreateGroupOpen(true)}
               >
                 <IconUsers width={20} height={20} />
@@ -575,7 +575,7 @@ function App() {
         </div>
 
         <div className="sf-sidebar-scroll">
-          <p className="sf-section-label">Chats</p>
+          <p className="sf-section-label">{t('app.chats')}</p>
           <div>
             {filteredConversations.map((c) => {
               const title = convDisplayTitle(c, currentUser.id);
@@ -586,7 +586,7 @@ function App() {
                 sidebarPreviewByConv[c.id] ??
                 loadStoredPreview(c.id) ??
                 (c.lastMessage ? previewFromMessageType(c.lastMessage.messageType) : null) ??
-                'No messages yet';
+                t('app.noMessagesYet');
               const mutedSidebar = isConversationNotifyMuted(c.id);
               const dmBlocked = !c.isGroup && other && isUserBlocked(other.id);
               return (
@@ -608,8 +608,8 @@ function App() {
                       <div className="sf-conv-name-row">
                         <span className="sf-conv-name">
                           {title}
-                          {mutedSidebar ? <span className="sf-conv-muted-badge">Muted</span> : null}
-                          {dmBlocked ? <span className="sf-conv-muted-badge">Locked</span> : null}
+                          {mutedSidebar ? <span className="sf-conv-muted-badge">{t('badge.muted')}</span> : null}
+                          {dmBlocked ? <span className="sf-conv-muted-badge">{t('badge.locked')}</span> : null}
                         </span>
                         <span className="sf-conv-time">{formatSidebarTime(c.updatedAt)}</span>
                       </div>
@@ -623,7 +623,7 @@ function App() {
 
           {sidebarQuery.trim() ? (
             <div>
-              <p className="sf-section-label">Friends</p>
+              <p className="sf-section-label">{t('friends.title')}</p>
               {filteredUsers
                 .filter((u) => u.id !== currentUser.id)
                 .map((u) => (
@@ -636,7 +636,7 @@ function App() {
                 ))}
               {filteredConversations.length === 0 && filteredUsers.length === 0 ? (
                 <div className="sf-empty" style={{ padding: '0.75rem 0' }}>
-                  Nothing found
+                  {t('app.nothingFound')}
                 </div>
               ) : null}
             </div>
@@ -656,7 +656,9 @@ function App() {
                 {currentUser.username}
                 <span className="sf-profile-id"> #{currentUser.discriminator}</span>
               </p>
-              <p className="sf-profile-status">{currentUser.online ? 'Online' : 'Offline'}</p>
+              <p className="sf-profile-status">
+                {currentUser.online ? t('app.profile.online') : t('app.profile.offline')}
+              </p>
             </div>
             <span className="sf-profile-settings" aria-hidden>
               <IconSettings width={20} height={20} />
@@ -698,7 +700,7 @@ function App() {
             onSidebarPreview={onSidebarPreview}
           />
         ) : (
-          <div className="sf-empty">Select a conversation.</div>
+          <div className="sf-empty">{t('app.selectConversation')}</div>
         )}
       </main>
 
@@ -769,7 +771,7 @@ function App() {
                 setConvCtx(null);
               }}
             >
-              {isConversationNotifyMuted(convCtx.conv.id) ? 'Turn on notifications' : 'Mute notifications'}
+              {isConversationNotifyMuted(convCtx.conv.id) ? t('conv.turnOnNotifications') : t('conv.muteNotifications')}
             </button>
             {!convCtx.conv.isGroup ? (
               <button
@@ -787,7 +789,7 @@ function App() {
               >
                 {(() => {
                   const o = convCtx.conv.participants.find((p) => p.id !== currentUser.id);
-                  return o && isUserBlocked(o.id) ? 'Unlock user' : 'Lock user';
+                  return o && isUserBlocked(o.id) ? t('conv.unlockUser') : t('conv.lockUser');
                 })()}
               </button>
             ) : null}
@@ -800,7 +802,7 @@ function App() {
                 setConvCtx(null);
               }}
             >
-              Delete chat
+              {t('conv.deleteChat')}
             </button>
           </div>,
           document.body
@@ -808,10 +810,10 @@ function App() {
 
       <ConfirmDialog
         isOpen={!!deleteChatConfirm}
-        title="Delete chat?"
-        message={deleteChatConfirm?.isGroup ? 'Leave and hide this group chat?' : 'Hide this chat from the list?'}
-        cancelText="Cancel"
-        confirmText="Delete"
+        title={t('conv.deleteChatTitle')}
+        message={deleteChatConfirm?.isGroup ? t('conv.deleteChatGroupMsg') : t('conv.deleteChatDmMsg')}
+        cancelText={t('common.cancel')}
+        confirmText={t('conv.delete')}
         danger
         onCancel={() => setDeleteChatConfirm(null)}
         onConfirm={() => {
@@ -853,7 +855,7 @@ function App() {
       {incomingRing && !outgoingCall && !activeCall && !activeGroupCall && !incomingGroupInvite && (
         <div className="sf-incoming-call">
           <p>
-            <strong>{peerDisplayName(incomingRing.callerId)}</strong> is calling…
+            {t('incomingCall.isCalling').replace('{name}', peerDisplayName(incomingRing.callerId))}
           </p>
           <div className="sf-incoming-actions">
             <button
@@ -861,7 +863,10 @@ function App() {
               className="sf-incoming-decline"
               onClick={() => setIncomingRing(null)}
             >
-              Decline
+              <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPhoneHangup width={18} height={18} />
+              </span>
+              {t('incomingCall.decline')}
             </button>
             <button
               type="button"
@@ -882,7 +887,10 @@ function App() {
                 if (conv) setSelected(conv);
               }}
             >
-              Accept
+              <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPhone width={18} height={18} />
+              </span>
+              {t('incomingCall.accept')}
             </button>
           </div>
         </div>
@@ -891,7 +899,7 @@ function App() {
       {incomingGroupInvite && !activeGroupCall && (
         <div className="sf-incoming-call">
           <p>
-            <strong>{peerDisplayName(incomingGroupInvite.initiatorId)}</strong> started a group call…
+            {t('incomingCall.groupStarted').replace('{name}', peerDisplayName(incomingGroupInvite.initiatorId))}
           </p>
           <div className="sf-incoming-actions">
             <button
@@ -899,7 +907,10 @@ function App() {
               className="sf-incoming-decline"
               onClick={() => setIncomingGroupInvite(null)}
             >
-              Decline
+              <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPhoneHangup width={18} height={18} />
+              </span>
+              {t('incomingCall.decline')}
             </button>
             <button
               type="button"
@@ -917,7 +928,10 @@ function App() {
                 if (conv) setSelected(conv);
               }}
             >
-              Accept
+              <span aria-hidden style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}>
+                <IconPhone width={18} height={18} />
+              </span>
+              {t('incomingCall.accept')}
             </button>
           </div>
         </div>
@@ -935,7 +949,7 @@ function App() {
             const conv = conversations.find((c) => c.id === activeGroupCall.conversationId);
             const fromConv = conv?.participants.find((p) => p.id === userId)?.username;
             if (fromConv) return fromConv;
-            return users.find((u) => u.id === userId)?.username ?? 'User';
+            return users.find((u) => u.id === userId)?.username ?? t('app.userFallback');
           }}
           avatarUrlFor={(userId) => {
             const u = users.find((x) => x.id === userId);
