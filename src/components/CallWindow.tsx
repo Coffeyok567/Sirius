@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { websocketService } from '../services/websocket';
-import { IconPhoneHangup, IconMic, IconMicOff, IconScreenShare, IconVideo } from './icons';
+import { IconPhoneHangup, IconMic, IconMicOff, IconScreenShare, IconVideo, IconVideoOff } from './icons';
 import { audioInputConstraints, applyAudioOutput, getStoredMicInputVolume } from '../utils/callMediaPrefs';
+import { t } from '../utils/i18n';
 import './CallWindow.css';
 
 export interface CallSessionProps {
@@ -468,27 +469,27 @@ const CallWindow: React.FC<CallSessionProps> = ({
         <span className="call-window-name">
           {remoteName}
           {remoteMicMuted ? (
-            <span className="call-remote-mic-off" title="Their microphone is off">
+            <span className="call-remote-mic-off" title={t('call.remoteMicOff')}>
               <IconMicOff width={16} height={16} />
             </span>
           ) : null}
         </span>
         <span className="call-window-status">
           {renegotiating
-            ? 'Updating…'
+            ? t('call.updating')
             : callStatus === 'active'
               ? formatDuration(duration)
-              : 'Connecting…'}
+              : t('call.connecting')}
         </span>
       </div>
       <div className={`video-container${remoteSpeaking ? ' call-remote-speaking' : ''}`}>
         <video ref={remoteVideoRef} autoPlay playsInline className="remote-video" />
         {callStatus === 'connecting' && role === 'caller' ? (
-          <div className="call-waiting-overlay" aria-label="Calling…">
+          <div className="call-waiting-overlay" aria-label={t('call.calling')}>
             <div className="call-waiting-avatar" aria-hidden>
               {remoteName.trim().slice(0, 1).toUpperCase()}
             </div>
-            <div className="call-waiting-text">Calling…</div>
+            <div className="call-waiting-text">{t('call.calling')}</div>
           </div>
         ) : null}
         {showExpand ? (
@@ -496,8 +497,8 @@ const CallWindow: React.FC<CallSessionProps> = ({
             <button
               type="button"
               className="call-expand-btn"
-              title="Full screen"
-              aria-label="Full screen"
+              title={t('call.fullScreen')}
+              aria-label={t('call.fullScreen')}
               onClick={() => setScreenExpanded((x) => !x)}
             >
               <span aria-hidden>⛶</span>
@@ -516,13 +517,25 @@ const CallWindow: React.FC<CallSessionProps> = ({
       </div>
 
       <div className="call-controls">
-        <button type="button" onClick={toggleMute} className={isMuted ? 'active' : ''} title="Mute" aria-label="Mute">
+        <button
+          type="button"
+          onClick={toggleMute}
+          className={isMuted ? 'active' : ''}
+          title={t('call.mute')}
+          aria-label={t('call.mute')}
+        >
           <span className="call-ctrl-icon">
             {isMuted ? <IconMicOff width={22} height={22} /> : <IconMic width={22} height={22} />}
           </span>
         </button>
         {!cameraOn ? (
-          <button type="button" onClick={() => void enableCamera()} disabled={renegotiating} title="Turn camera on" aria-label="Camera on">
+          <button
+            type="button"
+            onClick={() => void enableCamera()}
+            disabled={renegotiating}
+            title={t('call.cameraOn')}
+            aria-label={t('call.cameraOn')}
+          >
             <span className="call-ctrl-icon">
               <IconVideo width={22} height={22} />
             </span>
@@ -532,11 +545,11 @@ const CallWindow: React.FC<CallSessionProps> = ({
             type="button"
             onClick={toggleCameraEnabled}
             className={!cameraTrackEnabled ? 'active' : ''}
-            title="Camera on/off"
-            aria-label="Camera"
+            title={t('call.camera')}
+            aria-label={t('call.camera')}
           >
             <span className="call-ctrl-icon">
-              {cameraTrackEnabled ? <IconVideo width={22} height={22} /> : <IconMicOff width={22} height={22} />}
+              {cameraTrackEnabled ? <IconVideo width={22} height={22} /> : <IconVideoOff width={22} height={22} />}
             </span>
           </button>
         )}
@@ -544,14 +557,14 @@ const CallWindow: React.FC<CallSessionProps> = ({
           type="button"
           onClick={() => void toggleScreenShare()}
           className={isScreenSharing ? 'active' : ''}
-          title="Share screen"
-          aria-label="Share screen"
+          title={t('call.shareScreen')}
+          aria-label={t('call.shareScreen')}
         >
           <span className="call-ctrl-icon">
             <IconScreenShare width={22} height={22} />
           </span>
         </button>
-        <button type="button" onClick={end} className="end-call" title="End call" aria-label="End call">
+        <button type="button" onClick={end} className="end-call" title={t('call.end')} aria-label={t('call.end')}>
           <IconPhoneHangup width={22} height={22} />
         </button>
       </div>

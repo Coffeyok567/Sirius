@@ -6,6 +6,7 @@ import (
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"messenger/internal/auth"
 	appcrypto "messenger/internal/crypto"
@@ -13,14 +14,21 @@ import (
 	"messenger/internal/models"
 	"messenger/internal/services"
 	"messenger/internal/websocket"
+	"messenger/internal/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 	"github.com/glebarez/sqlite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatal("Ошибка загрузки .env файла")
+	}
+	jwtSecret := []byte(os.Getenv("MESSENGER_JWT_SECRET"))
 	// Initialize database
 	db := initDB()
 
@@ -34,14 +42,29 @@ func main() {
 		&models.ConversationClearState{},
 		&models.FriendRequest{},
 		&models.Friendship{},
+		&models.RefreshToken{}, // Добавляем миграцию для RefreshToken
 	)
 	normalizeUserIndexes(db)
 
 	// Initialize services
-	authService := auth.NewAuthService(db)
+	tokenService := services.NewTokenService(db) // Сначала создаем tokenService
+	authService := auth.NewAuthService(db, tokenService, jwtSecret) // Затем передаем его в authService
+	
+	// Запускаем фоновую очистку токенов
+	go func() {
+		ticker := time.NewTicker(1 * time.Hour)
+		defer ticker.Stop()
+		for range ticker.C {
+			if err := tokenService.CleanupExpiredTokens(); err != nil {
+				log.Printf("Failed to cleanup expired tokens: %v", err)
+			}
+		}
+	}()
+
 	if err := authService.BackfillDiscriminators(); err != nil {
 		log.Println("Failed to backfill discriminators:", err)
 	}
+	
 	cryptoService := appcrypto.NewE2EEService()
 	messageService := services.NewMessageService(db, cryptoService)
 	wsHub := websocket.NewHub(messageService, cryptoService)
@@ -63,8 +86,8 @@ func main() {
 	// Public routes
 	api := router.Group("/api")
 	{
-		api.POST("/auth/register", authHandler.Register)
-		api.POST("/auth/login", authHandler.Login)
+		api.POST("/auth/register", middleware.RegisterRateLimit(), authHandler.Register)
+		api.POST("/auth/login", middleware.LoginRateLimit(), authHandler.Login)
 		api.POST("/auth/refresh", authHandler.RefreshToken)
 	}
 
@@ -72,6 +95,10 @@ func main() {
 	protected := api.Group("/")
 	protected.Use(auth.AuthMiddleware(authService))
 	{
+		protected.POST("/auth/logout", authHandler.Logout)
+		protected.POST("/auth/logout-all", authHandler.LogoutAll)
+		protected.POST("/auth/change-password", authHandler.ChangePassword)
+		
 		protected.GET("/users", messageHandler.GetUsers)
 		protected.GET("/friends", messageHandler.GetFriends)
 		protected.DELETE("/friends/:userId", messageHandler.RemoveFriend)

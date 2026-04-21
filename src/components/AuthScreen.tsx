@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { IconMail, IconLock, IconUser, IconEye, IconEyeOff } from './icons';
+import { t } from '../utils/i18n';
 
 interface AuthScreenProps {
   mode: 'login' | 'register';
@@ -32,6 +33,13 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const isLogin = mode === 'login';
+  const USERNAME_MAX = 32;
+
+  const sanitizeUsername = (v: string) => {
+    // Letters/digits/underscore/dot, no spaces; keep it simple and predictable.
+    const cleaned = v.replace(/[^\p{L}\p{N}._]/gu, '');
+    return cleaned.slice(0, USERNAME_MAX);
+  };
 
   return (
     <div className="sf-auth-overlay">
@@ -42,10 +50,10 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
         <div className="sf-auth-head">
           <div className="sf-auth-head-text">
             <h1 id="sf-auth-title" className="sf-auth-title">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {isLogin ? t('auth.welcomeBack') : t('auth.createAccount')}
             </h1>
             <p className="sf-auth-subtitle">
-              {isLogin ? 'Login to continue to Sirius' : 'Sign up to start messaging on Sirius'}
+              {isLogin ? t('auth.subtitleLogin') : t('auth.subtitleRegister')}
             </p>
           </div>
         </div>
@@ -57,7 +65,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
         >
           {!isLogin && (
             <div className="sf-auth-field">
-              <label className="sf-auth-label">Username</label>
+              <label className="sf-auth-label">{t('auth.username')}</label>
               <div className="sf-auth-input-wrap">
                 <span className="sf-auth-input-icon" aria-hidden>
                   <IconUser width={20} height={20} />
@@ -65,18 +73,20 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => onUsername(e.target.value)}
-                  placeholder="Choose a username"
+                  onChange={(e) => onUsername(sanitizeUsername(e.target.value))}
+                  placeholder={t('auth.usernamePlaceholder')}
                   className="sf-auth-input"
                   required
                   autoComplete="username"
+                  maxLength={USERNAME_MAX}
                 />
               </div>
+              <p className="sf-input-hint">{t('auth.usernameHint')}</p>
             </div>
           )}
 
           <div className="sf-auth-field">
-            <label className="sf-auth-label">Email</label>
+            <label className="sf-auth-label">{t('auth.email')}</label>
             <div className="sf-auth-input-wrap">
               <span className="sf-auth-input-icon" aria-hidden>
                 <IconMail width={20} height={20} />
@@ -85,7 +95,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
                 type="email"
                 value={email}
                 onChange={(e) => onEmail(e.target.value)}
-                placeholder="Enter your email"
+                placeholder={t('auth.emailPlaceholder')}
                 className="sf-auth-input"
                 required
                 autoComplete="email"
@@ -94,7 +104,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
           </div>
 
           <div className="sf-auth-field">
-            <label className="sf-auth-label">Password</label>
+            <label className="sf-auth-label">{t('auth.password')}</label>
             <div className="sf-auth-input-wrap">
               <span className="sf-auth-input-icon" aria-hidden>
                 <IconLock width={20} height={20} />
@@ -103,7 +113,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => onPassword(e.target.value)}
-                placeholder="Enter your password"
+                placeholder={t('auth.passwordPlaceholder')}
                 className="sf-auth-input sf-auth-input--with-toggle"
                 required
                 minLength={isLogin ? undefined : 8}
@@ -113,35 +123,33 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
                 type="button"
                 className="sf-auth-toggle-pw"
                 onClick={() => setShowPassword((s) => !s)}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('auth.hidePassword') : t('auth.showPassword')}
               >
                 {showPassword ? <IconEyeOff width={20} height={20} /> : <IconEye width={20} height={20} />}
               </button>
             </div>
+            {!isLogin ? <p className="sf-input-hint">{t('auth.passwordHint')}</p> : null}
           </div>
 
           {isLogin && (
             <div className="sf-auth-row">
               <label className="sf-auth-remember">
                 <input type="checkbox" className="sf-auth-checkbox" />
-                <span>Remember me</span>
+                <span>{t('auth.rememberMe')}</span>
               </label>
-              <button type="button" className="sf-auth-link-btn">
-                Forgot password?
-              </button>
             </div>
           )}
 
           {error && <p className="sf-auth-error">{error}</p>}
 
           <button type="submit" className="sf-auth-submit" disabled={busy}>
-            {busy ? '…' : isLogin ? 'Login' : 'Create Account'}
+            {busy ? '…' : isLogin ? t('auth.login') : t('auth.create')}
           </button>
         </form>
 
         <div className="sf-auth-footer">
           <p className="sf-auth-switch">
-            {isLogin ? "Don't have an account? " : 'Already have an account? '}
+            {isLogin ? t('auth.haveNoAccount') : t('auth.haveAccount')}
             <button
               type="button"
               className="sf-auth-switch-btn"
@@ -149,7 +157,7 @@ const AuthScreen: React.FC<AuthScreenProps> = ({
                 onSetMode(isLogin ? 'register' : 'login');
               }}
             >
-              {isLogin ? 'Sign up' : 'Login'}
+              {isLogin ? t('auth.signUp') : t('auth.login')}
             </button>
           </p>
         </div>

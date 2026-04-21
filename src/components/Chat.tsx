@@ -77,7 +77,7 @@ interface ChatProps {
 
 function displayTitle(c: Conversation, self: User): string {
   const others = c.participants.filter((p) => p.id !== self.id);
-  return c.name || others.map((p) => p.username).join(', ') || 'Conversation';
+  return c.name || others.map((p) => p.username).join(', ') || t('app.chatFallbackTitle');
 }
 
 function convTitleForForward(c: Conversation, self: User): string {
@@ -146,13 +146,13 @@ const Chat: React.FC<ChatProps> = ({
       : undefined;
   const subtitle = conversation.isGroup
     ? typingUsers.size > 0
-      ? 'Typing…'
+      ? t('chat.typing')
       : membersLabel(conversation.participants.length)
     : typingUsers.size > 0
-      ? 'Typing…'
+      ? t('chat.typing')
       : peerOnline
-        ? 'Online'
-        : 'Offline';
+        ? t('app.profile.online')
+        : t('app.profile.offline');
 
   const onPlaintext = useCallback((id: string, text: string) => {
     setTextById((prev) => (prev[id] === text ? prev : { ...prev, [id]: text }));
@@ -613,7 +613,7 @@ const Chat: React.FC<ChatProps> = ({
     try {
       await navigator.clipboard.writeText(copySummaryFromPayload(parseDecryptedPayload(ctxMenu.plain)));
     } catch {
-      alert('Could not copy to clipboard.');
+      alert(t('msg.copyFail'));
     }
     closeCtxMenu();
   };
@@ -695,7 +695,7 @@ const Chat: React.FC<ChatProps> = ({
       });
     } catch (err) {
       console.error(err);
-      alert('Could not delete message.');
+      alert(t('msg.deleteFail'));
     }
   };
 
@@ -710,7 +710,7 @@ const Chat: React.FC<ChatProps> = ({
     if (!originalPlain || originalPlain.startsWith('Sent message (')) {
       const d = await resolvePlainForOps(editing.id);
       if (!d) {
-        alert('Could not load original message text.');
+        alert(t('msg.loadOriginalFail'));
         setEditing(null);
         return;
       }
@@ -718,7 +718,7 @@ const Chat: React.FC<ChatProps> = ({
     }
     const newPayload = buildTextPayloadFromEdit(originalPlain, editing.draft.trim());
     if (!newPayload.trim()) {
-      alert('Message cannot be empty.');
+      alert(t('msg.emptyNotAllowed'));
       return;
     }
     try {
@@ -747,7 +747,7 @@ const Chat: React.FC<ChatProps> = ({
       setEditing(null);
     } catch (err) {
       console.error(err);
-      alert('Could not save edit.');
+      alert(t('msg.saveEditFail'));
     }
   };
 
@@ -755,7 +755,7 @@ const Chat: React.FC<ChatProps> = ({
     if (!forwardMessageId) return;
     const plain = await resolvePlainForOps(forwardMessageId);
     if (!plain) {
-      alert('Message is not available to forward yet. Try again in a moment.');
+      alert(t('msg.forwardNotReady'));
       return;
     }
     const src = messages.find((m) => m.id === forwardMessageId);
@@ -780,7 +780,7 @@ const Chat: React.FC<ChatProps> = ({
       setForwardMessageId(null);
     } catch (err) {
       console.error(err);
-      alert('Could not forward message.');
+      alert(t('msg.forwardFail'));
     }
   };
 
@@ -800,32 +800,32 @@ const Chat: React.FC<ChatProps> = ({
       >
         {showDownloadCtx ? (
           <button type="button" className="sf-msg-ctx-item" role="menuitem" onClick={handleCtxDownload}>
-            Download
+            {t('msg.download')}
           </button>
         ) : null}
         {ctxMenu?.isOwn && canEditCtx ? (
           <button type="button" className="sf-msg-ctx-item" role="menuitem" onClick={handleCtxEdit}>
-            Edit
+            {t('msg.edit')}
           </button>
         ) : null}
         {ctxMenu?.isOwn ? (
           <button type="button" className="sf-msg-ctx-item" role="menuitem" onClick={() => void handleCtxCopy()}>
-            Copy
+            {t('msg.copy')}
           </button>
         ) : null}
         {ctxMenu?.isOwn ? (
           <button type="button" className="sf-msg-ctx-item" role="menuitem" onClick={handleCtxForward}>
-            Forward
+            {t('msg.forward')}
           </button>
         ) : null}
         {ctxMenu?.isOwn ? (
           <button type="button" className="sf-msg-ctx-item" role="menuitem" onClick={handleCtxReply}>
-            Reply
+            {t('msg.reply')}
           </button>
         ) : null}
         {ctxMenu?.isOwn ? (
           <button type="button" className="sf-msg-ctx-item sf-msg-ctx-item--danger" role="menuitem" onClick={() => void handleCtxDelete()}>
-            Delete
+            {t('common.remove')}
           </button>
         ) : null}
       </div>,
@@ -841,7 +841,7 @@ const Chat: React.FC<ChatProps> = ({
         onClick={() => setForwardMessageId(null)}
       >
         <div className="sf-forward-modal" role="dialog" aria-label="Forward message" onClick={(e) => e.stopPropagation()}>
-          <h3>Forward to…</h3>
+          <h3>{t('msg.forwardTo')}</h3>
           <ul className="sf-forward-list">
             {forwardTargets.map((c) => (
               <li key={c.id}>
@@ -857,10 +857,15 @@ const Chat: React.FC<ChatProps> = ({
             ))}
           </ul>
           {forwardTargets.length === 0 ? (
-            <p style={{ color: 'var(--sf-zinc-500)', fontSize: '0.875rem' }}>No other chats.</p>
+            <p style={{ color: 'var(--sf-zinc-500)', fontSize: '0.875rem' }}>{t('msg.noOtherChats')}</p>
           ) : null}
-          <button type="button" className="sf-btn sf-btn--ghost sf-btn--small" style={{ marginTop: '0.75rem' }} onClick={() => setForwardMessageId(null)}>
-            Cancel
+          <button
+            type="button"
+            className="sf-btn sf-btn--ghost sf-btn--small"
+            style={{ marginTop: '0.75rem' }}
+            onClick={() => setForwardMessageId(null)}
+          >
+            {t('common.cancel')}
           </button>
         </div>
       </div>,
@@ -872,7 +877,7 @@ const Chat: React.FC<ChatProps> = ({
     createPortal(
       <div className="sf-edit-msg-overlay" role="presentation" onClick={() => setEditing(null)}>
         <div className="sf-edit-msg-modal" role="dialog" aria-label="Edit message" onClick={(e) => e.stopPropagation()}>
-          <h3>Edit message</h3>
+          <h3>{t('msg.editTitle')}</h3>
           <textarea
             value={editing.draft}
             onChange={(e) => setEditing({ ...editing, draft: e.target.value })}
@@ -880,10 +885,10 @@ const Chat: React.FC<ChatProps> = ({
           />
           <div className="sf-edit-msg-actions">
             <button type="button" className="sf-btn sf-btn--ghost sf-btn--small" onClick={() => setEditing(null)}>
-              Cancel
+              {t('common.cancel')}
             </button>
             <button type="button" className="sf-btn sf-btn--small" onClick={() => void saveEdit()}>
-              Save
+              {t('common.save')}
             </button>
           </div>
         </div>
@@ -895,14 +900,14 @@ const Chat: React.FC<ChatProps> = ({
     <div className="sf-chat">
       <ConfirmDialog
         isOpen={!!confirm}
-        title={confirm?.kind === 'delete' ? 'Delete message?' : 'Clear entire chat?'}
+        title={confirm?.kind === 'delete' ? t('chat.deleteMsgTitle') : t('chat.clearChatTitle')}
         message={
           confirm?.kind === 'delete'
-            ? 'Delete this message for everyone?'
-            : 'Clear the entire chat?'
+            ? t('chat.deleteMsgConfirm')
+            : t('chat.clearChatConfirm')
         }
-        confirmText={confirm?.kind === 'delete' ? 'Delete' : 'Clear'}
-        cancelText="Cancel"
+        confirmText={confirm?.kind === 'delete' ? t('common.remove') : t('chat.clearChat')}
+        cancelText={t('common.cancel')}
         danger
         busy={confirmBusy}
         onCancel={() => setConfirm(null)}
@@ -958,7 +963,7 @@ const Chat: React.FC<ChatProps> = ({
             type="button"
             className="sf-icon-btn"
             title={conversation.isGroup ? t('chat.groupCall') : t('chat.voiceCall')}
-            aria-label="Voice call"
+            aria-label={conversation.isGroup ? t('chat.groupCall') : t('chat.voiceCall')}
             disabled={!canCall}
             onClick={startCallClick}
           >
@@ -968,8 +973,8 @@ const Chat: React.FC<ChatProps> = ({
             ref={menuBtnRef}
             type="button"
             className="sf-icon-btn"
-            title="More"
-            aria-label="More"
+            title={t('chat.more')}
+            aria-label={t('chat.more')}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((o) => !o)}
           >
@@ -1012,10 +1017,10 @@ const Chat: React.FC<ChatProps> = ({
         }}
       >
         {loading && messages.length === 0 && (
-          <div className="sf-loading-msg">Loading…</div>
+          <div className="sf-loading-msg">{t('chat.loading')}</div>
         )}
         {loading && messages.length > 0 && (
-          <div className="sf-loading-msg">Loading older…</div>
+          <div className="sf-loading-msg">{t('chat.loadingOlder')}</div>
         )}
         {messages.map((message) => (
           <MessageBubble
@@ -1044,9 +1049,9 @@ const Chat: React.FC<ChatProps> = ({
         disabled={!canSendMessage}
         disabledHint={
           peerLocked
-            ? 'This user is locked. Unlock to send messages.'
+            ? t('chat.disabledLockedHint')
             : !canSendMessage
-              ? 'You cannot send messages in this chat.'
+              ? t('chat.disabledCannotSend')
               : undefined
         }
         replyPreview={

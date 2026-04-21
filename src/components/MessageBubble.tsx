@@ -6,6 +6,7 @@ import { AvatarBubble } from '../utils/avatar';
 import { loadPlainCache } from '../utils/messagePlainCache';
 import { IconFile } from './icons';
 import VoiceMessagePlayer from './VoiceMessagePlayer';
+import { getStoredLang, t } from '../utils/i18n';
 
 function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -101,16 +102,16 @@ export function searchTextFromPayload(p: ParsedPayload): string {
     const q = p.replySnippet ? `${p.replySnippet} ${p.text}` : p.text;
     return q;
   }
-  if (p.kind === 'voice') return 'Voice message';
+  if (p.kind === 'voice') return t('msg.voiceMessage');
   if (p.kind === 'sticker') return p.char;
-  return `File: ${p.name}`;
+  return t('msg.file').replace('{name}', p.name);
 }
 
 export function copySummaryFromPayload(p: ParsedPayload): string {
   if (p.kind === 'text') return p.text;
-  if (p.kind === 'voice') return 'Voice message';
+  if (p.kind === 'voice') return t('msg.voiceMessage');
   if (p.kind === 'sticker') return p.char;
-  return `File: ${p.name}`;
+  return t('msg.file').replace('{name}', p.name);
 }
 
 export function editableTextFromPayload(plain: string, p: ParsedPayload): string | null {
@@ -146,6 +147,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const [plain, setPlain] = useState<string>(isOwn && localPlaintext ? localPlaintext : '');
   const [err, setErr] = useState(false);
   const [loading, setLoading] = useState(!(isOwn && localPlaintext));
+  const [hideOwnPlaceholder, setHideOwnPlaceholder] = useState(false);
   const [lightbox, setLightbox] = useState<'image' | 'video' | null>(null);
   const onPlainRef = useRef(onPlaintext);
   const onFullRef = useRef(onFullPlaintext);
@@ -212,13 +214,16 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
         setPlain(hit);
         setLoading(false);
         setErr(false);
+        setHideOwnPlaceholder(false);
         const p = parseDecryptedPayload(hit);
         onPlainRef.current?.(message.id, searchTextFromPayload(p));
         onFullRef.current?.(message.id, hit);
       } else {
         setLoading(false);
         setErr(false);
-        setPlain('Sent message (encrypted for recipient)');
+        // Don't show "Sent message (encrypted...)" placeholders at all.
+        setPlain('');
+        setHideOwnPlaceholder(true);
       }
       return;
     }
@@ -264,7 +269,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       } catch {
         if (!cancelled) {
           setErr(true);
-          setPlain('Could not decrypt message');
+          setPlain(t('msg.decryptFailed'));
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -275,7 +280,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
     };
   }, [message, isOwn, localPlaintext, message.id, message.senderKey, groupConversationId]);
 
-  const time = new Date(message.createdAt).toLocaleTimeString([], {
+  const time = new Date(message.createdAt).toLocaleTimeString(getStoredLang() === 'ru' ? 'ru-RU' : 'en-US', {
     hour: 'numeric',
     minute: '2-digit',
   });
@@ -303,7 +308,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 ↩
               </span>
               <span className="sf-msg-reply-body">
-                <span className="sf-msg-reply-who">Reply</span>
+                <span className="sf-msg-reply-who">{t('msg.reply')}</span>
                 <span className="sf-msg-reply-snippet">{p.replySnippet}</span>
               </span>
               {p.replyKind && (p.replyKind === 'image' || p.replyKind === 'gif') && p.replyMime && p.replyThumbB64 ? (
@@ -329,7 +334,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
       );
     }
     if (p.kind === 'voice') {
-      return voiceUrl ? <VoiceMessagePlayer src={voiceUrl} /> : <span className="sf-msg-voice-fallback">Voice message</span>;
+      return voiceUrl ? <VoiceMessagePlayer src={voiceUrl} /> : <span className="sf-msg-voice-fallback">{t('msg.voiceMessage')}</span>;
     }
     const href = `data:${p.mime};base64,${p.b64}`;
     if (mediaUrl && isRichMediaMime(p.mime)) {
@@ -350,7 +355,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
                 className="sf-msg-fullscreen-btn"
                 onClick={() => openLightbox('video')}
               >
-                Full screen
+                {t('msg.fullScreen')}
               </button>
             </>
           ) : (
@@ -379,7 +384,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
   const handleContextMenu = (e: React.MouseEvent) => {
     if (!onMessageContextMenu || loading || err) return;
     const dec = plain;
-    if (!dec || dec.startsWith('Sent message (')) return;
+    if (!dec) return;
     const p = parseDecryptedPayload(dec);
     const imgCtx = isImageOrGifFilePayload(p);
     if (!imgCtx && !isOwn) return;
@@ -425,6 +430,8 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({
           document.body
         )
       : null;
+
+  if (isOwn && hideOwnPlaceholder) return null;
 
   return (
     <>

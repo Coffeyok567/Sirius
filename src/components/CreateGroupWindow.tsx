@@ -101,7 +101,7 @@ const CreateGroupWindow: React.FC<CreateGroupWindowProps> = ({
             />
           </div>
           <p className="sf-auth-label">{t('group.members')}</p>
-          <ul className="sf-group-member-list">
+          <ul className="sf-group-check-list">
             {others.map((u) => (
               <li key={u.id}>
                 <label className="sf-group-check-row">
